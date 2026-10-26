@@ -1,0 +1,70 @@
+// Prisma schema for the Store Rating application (PostgreSQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN // System Administrator
+  USER  // Normal User
+  OWNER // Store Owner
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(60)
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash")
+  address      String   @db.VarChar(400)
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  ownedStore Store?
+  ratings    Rating[]
+
+  @@index([name])
+  @@index([role])
+  @@map("users")
+}
+
+model Store {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(60)
+  email     String   @unique @db.VarChar(255)
+  address   String   @db.VarChar(400)
+  // One owner owns at most one store. NULL means "no owner assigned yet".
+  ownerId   Int?     @unique @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner   User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  ratings Rating[]
+
+  @@index([name])
+  @@index([address])
+  @@map("stores")
+}
+
+model Rating {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  storeId   Int      @map("store_id")
+  // 1..5 (CHECK constraint added in the migration SQL)
+  rating    Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // One rating per user per store
+  @@unique([userId, storeId])
+  @@index([storeId])
+  @@map("ratings")
+}
